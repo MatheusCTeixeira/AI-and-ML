@@ -29,12 +29,12 @@ Esta implementação possui diversos parâmetros para ajuste. Entre eles:
 Exemplo de execução:
 
 > Legenda:
-> |Simbolo|Significado|
-> |-|-|
-> |[...]|Geração|
-> |hg|Maior valor da geração|
-> |av|Valor médio da geração|
-> |prob|Probabilidade de haver mutação|
+|Simbolo|Significado|
+|-|-|
+|[...]|Geração|
+|hg|Maior valor da geração|
+|av|Valor médio da geração|
+|prob|Probabilidade de haver mutação|
 ```bash
 [0    ] hg: -35100.00, av: -16746.00, prob: 0.30
 [10   ] hg: -3600.00, av: -17264.00, prob: 0.30
