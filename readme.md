@@ -28,7 +28,8 @@ Esta implementação possui diversos parâmetros para ajuste. Entre eles:
 
 Exemplo de execução:
 
-Legenda:
+Legenda
+
 |Simbolo|Significado|
 |-|-|
 |[...]|Geração|
