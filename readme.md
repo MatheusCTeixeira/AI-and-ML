@@ -26,7 +26,7 @@ Esta implementação possui diversos parâmetros para ajuste. Entre eles:
 ![Amostra 2](/resources/amostra_2.gif)
 ![Amostra 3](/resources/amostra_3.gif)
 
-Exemplo de execução:
+### Exemplo de execução:
 
 Legenda
 |Simbolo|Significado|
