@@ -8,25 +8,34 @@
 
 import random
 import math
+import itertools
+from matplotlib import pyplot as plt
 
 # Lista de cidades.
 cities = {
-    "A": (0, 0),
-    "B": (0, 100),
-    "C": (0, 200),
-    "D": (0, 300),
-    "E": (0, 400),
-    "F": (0, 500),
-    "G": (0, 600),
-    "H": (0, 700),
-    "I": (0, 800),
-    "J": (0, 900),
-    "K": (0, 1000),
-    "L": (0, 1100),
-    "M": (0, 1200),
-    "N": (0, 1300),
-    "O": (0, 1400),
+    "A": (17306, 4800),
+    "B": (10522, 25923),
+    "C": (19136, 813),
+    "D": (15406, 2264),
+    "E": (8395, 20079),
+    "F": (18000, 22219),
+    "G": (3123, 27583),
+    "H": (3732, 14324),
+    "I": (13695, 10824),
+    "J": (16509, 10146),
+    "K": (5288, 1971),
+    "L": (12626, 5075),
+    "M": (280, 17916),
+    "N": (5612, 15248),
+    "O": (4146, 1455),
+    "P": (5448, 5262),
+    "Q": (3152, 4894),
+    "R": (15254, 6049),
+    "S": (17457, 12755),
 }
+
+# TODO Cálcular a maior distância e colocar o custa da duplicação igual a 150%
+# desse valor, por exemplo.
 
 # Calcula a distância entre duas cidades.
 def distance_between(citySource, cityDestiny):
@@ -48,31 +57,33 @@ def generate_initial_genes(n_cromossomes):
     return genes
 
 # Calcula a distância total do conjunto de cidades.
-def calc_gene_distance(gene):
+def calc_gene_distance(genes):
     distance = 0
 
-    for i in range(0, len(cities) - 1):
-        city_origin = gene[i]
-        city_source = gene[i+1]
+    for i in range(0, len(genes)-1):
+        city_origin = genes[i]
+        city_source = genes[i+1]
         distance += distance_between(city_origin, city_source)
 
     return distance
 
 # Cálcula a aptidão do genes.
 def fitness(genes):
-    value = 1400                                # Valor máximo.
-    duplicated_city_penality = 10000            # Penalidade por duplicação.
+    value = 0                                       # Valor máximo.
+    duplicated_city_penality = 1E5                  # Penalidade por duplicação.
 
     # O número de cidades duplicadas.
-    num_duplications = len(cities) - len(set(genes))
+    n = len(genes)
+    visited_cities = set(genes)
+    num_duplications = n - len(visited_cities)
 
     # Aplica penalidade por cidades duplicadas.
-    value -= duplicated_city_penality * num_duplications
+    cost = (duplicated_city_penality * num_duplications)
 
     # Aplica penalidade por distância.
-    value -= calc_gene_distance(genes)
+    cost += calc_gene_distance(genes)
 
-    return value
+    return value - cost
 
 
 # Heurística 1
@@ -107,17 +118,17 @@ class Individual:
         # Determina se o indivíduo vai sofrer mutação ou não. Se o valor aleató-
         # rio de probabilidade for maior que o específicado por parâmetro, então
         # ele deve sofrer mutação.
-        n_crom = random.randint(0, int(prob * (len(self.genes)-1)))
+        n_crom = random.randint(1, int(prob * self.n_genes))
 
-        # if not will_mutate:
-            # return
         cities_names = list(cities.keys())
         sz = len(cities_names)
 
         # Faz o swap entre cromossomos.
         for i in range(n_crom):
-            idx = random.randint(0, len(self.genes) - 1)
-            self.genes[idx] = heuristic_1(self.genes, idx)[0]
+            idx = random.randint(0, self.n_genes - 1)
+            idx_city = random.randint(0, sz - 1)
+            self.genes[idx] = cities_names[idx_city]
+
 
     # Em vez de remover apenas a parte inicial do gene, esse algoritmo remove
     # subtitui apenas uma porção dele.
@@ -157,7 +168,7 @@ class Population:
 
         self.population = \
             [Individual(generator_func(n_cromossomos)) \
-                for i in range(n_cromossomos)]
+                for i in range(n_individuals)]
 
 
         self.n_individuals  = n_individuals    # O número de indivíduos.
@@ -179,10 +190,21 @@ class Population:
         self.population = self.population[:self.n_individuals]
 
     def _random_idxs(self, n, min_value, max_value):
-        result = [random.randint(min_value, max_value) for x in range(n)]
+        result = []
+        while (len(set(result)) < n):
+            result = [random.randint(min_value, max_value) for x in range(n)]
+
         result.sort()
 
         return result
+
+    def _variation_degree(self, father, mother):
+        count = 0
+        for i in range(self.n_cromossomos):
+            if father[i] != mother[i]:
+                count += 1
+
+        return count / self.n_cromossomos
 
     def do_crossover(self):
         # Seleciona o indivíduos para o crossover.
@@ -190,16 +212,25 @@ class Population:
             key=lambda individual: individual.get_fitness(),
             reverse=True)
 
-        self.descendents = [] # A nova geração de indivíduos.
+        descendents = [] # A nova geração de indivíduos.
 
         # Os 10 melhores reproduzem.
-        for i in range(0, min(10, len(self.population) - 1)):
+        n = self.n_individuals
+        for i, j in itertools.product(range(0, n), range(0, n)):
+            if i == j:
+                continue
+
             father = self.population[i]
-            mother = self.population[i+1]
+            mother = self.population[j]
+
+            minimum_degree_of_variation = .2
+
+            while self._variation_degree(father.genes, mother.genes) < minimum_degree_of_variation:
+                mother.mutation(1)
 
             # Escolhe o índice de começo e fim para realizar o crossover.
             low_crom_idx, high_crom_idx =\
-                self._random_idxs(2, 0, self.n_cromossomos)
+                self._random_idxs(2, 0, n - 1)
 
             # Extrai a porção do gene a ser trocada.
             father_dna = father.get_genes_portion(low_crom_idx, high_crom_idx)
@@ -210,35 +241,38 @@ class Population:
             # Substitui pela porção do DNA do outro ancestral.
             descendent_1.\
                 replace_genes_portion(low_crom_idx, high_crom_idx, mother_dna)
-            self.descendents.append(descendent_1)
+            descendents.append(descendent_1)
 
             # Mesmo processo para o segundo.
             descendent_2 = mother.mitosis()
             descendent_2.\
                 replace_genes_portion(low_crom_idx, high_crom_idx, father_dna)
-            self.descendents.append(descendent_2)
 
-        # Adiciona a nova geração à população.
-        # self.population.extend(descendents)
+            while self._variation_degree(descendent_1.genes, descendent_2.genes) < minimum_degree_of_variation:
+                descendent_2.mutation(1)
+
+            descendents.append(descendent_2)
 
         # Note: Neste ponto há len(descende) a mais. Na fase de seleção os mais
         # aptos deve ser selecionados para a próxima geração.
+        return descendents
 
     # Realiza a mutação. Note que a mutação é individual. Em um ciclo, alguns
     # indivíduos podem ou não sofre mutação.
-    def do_mutation(self):
-        for individual in self.descendents:
+    def do_mutation(self, descendents):
+        for individual in descendents:
             individual.mutation(self.mutation_prob)
 
-        self.population.extend(self.descendents)
+        self.population.extend(descendents)
+
 
 
     def next_generation(self):
         self.generation += 1 # Incrementa o ciclo/geração.
 
-        self.do_crossover() # Realiza o crossover.
-        self.do_selection() # Faz a "seleção natural".
-        self.do_mutation()  # Faz a mutação.
+        self.do_selection()               # Faz a "seleção natural".
+        descendents = self.do_crossover() # Realiza o crossover.
+        self.do_mutation(descendents)     # Faz a mutação.
 
     # Retorna o maior valor de aptidão/fitness contido na população.
     def highest_fitness(self):
@@ -258,12 +292,18 @@ class Population:
     # Exibe todos os indivíduos da população.
     def show_all_individual(self):
         self.population.sort(key=lambda ind: ind.get_fitness())
-        for individual in self.population:
+        for individual in self.population[-30:]:
             fitness = individual.get_fitness()
             distance = calc_gene_distance(individual.genes)
 
             print("%s -> f: %-2f d:%-2f"%
                   (str(individual.genes), fitness, distance))
+
+    def show_progress(self):
+        self.population.sort(key=lambda ind: ind.get_fitness())
+        plot_on_graphic(cities.keys(), True, False)
+        plot_on_graphic(self.population[-1].genes, False, True)
+
 
     # Itera até atingir algum critério de parada.
     def until_perfection(self, highest_fit, avg_fit):
@@ -277,9 +317,12 @@ class Population:
               absolute_error(self.average_fitness(), a_value) > av_tol and \
               self.generation < self.max_generation:
 
-            if self.generation % 500 == 0:
+            if self.generation % 5 == 0:
                 highest_fitness = self.highest_fitness()
-                print("[%-5d] hg: %4.2f, av: %4.2f, prob: %4.2f"%\
+                plt.clf()
+                self.show_progress()
+                plt.pause(0.05)
+                print("[%5d] cost: %8.2f, average cost: %15.2f, mutation probability: %4.2f"%\
                     (self.generation, \
                     highest_fitness, \
                     self.average_fitness(),\
@@ -296,15 +339,28 @@ class Population:
             print("Average fitness reached.")
 
 
+def plot_on_graphic(cities_names, draw_as_points, show_order):
+    coords = [cities[name] for name in cities_names]
+    X = [city[0] for city in coords]
+    Y = [city[1] for city in coords]
+    plt.plot(X, Y, "ro" if draw_as_points else "-b")
+    if show_order:
+        for i, coord in enumerate(coords):
+            plt.text(coord[0], coord[1], str(i))
+
 def main():
+    plot_on_graphic(cities.keys(), True, False)
+
     n_cromossomos = len(cities)
-    sz_population = 200
-    max_fitness = 1400
+    sz_population = 60
+    max_fitness = 1900
 
     Individual.fitness_func = fitness
-    population = Population(sz_population, n_cromossomos, 5000, 0.40)
+    population = Population(sz_population, n_cromossomos, 500, 0.3)
     population.until_perfection((0, 50.0), (max_fitness, 1E2))
     population.show_all_individual()
+
+    plt.show()
 
     return 0
 
@@ -312,15 +368,15 @@ def test():
     n_cromossomes = len(cities)
 
     genes = generate_initial_genes(n_cromossomes)
-
-    print("genes: %s"%genes)
-    print("distance: %f"%calc_gene_distance(genes))
+    genes =['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S']
     print("fitness: %f"%fitness(genes))
-    print("duplications: %d"%(len(genes)-len(set(genes))))
+    # print("genes: %s"%genes)
+    # print("distance: %f"%calc_gene_distance(genes))
+    # print("duplications: %d"%(len(genes)-len(set(genes))))
 
-    enhence = heuristic_1(genes, 1)
-    genes[1] = enhence[0]
-    print("fitness: %f"%fitness(genes))
+    # enhence = heuristic_1(genes, 1)
+    # genes[1] = enhence[0]
+    # print("fitness: %f"%fitness(genes))
 
 if __name__ == "__main__":
     main()
